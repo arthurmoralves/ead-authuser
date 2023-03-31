@@ -1,0 +1,109 @@
+package com.ead.authuser.services.impl;
+
+import com.ead.authuser.clients.CourseClient;
+import com.ead.authuser.dtos.UserDto;
+import com.ead.authuser.enums.ActionType;
+import com.ead.authuser.models.UserModel;
+import com.ead.authuser.publisher.UserEventPublisher;
+import com.ead.authuser.repositories.UserRepository;
+import com.ead.authuser.services.UserService;
+import com.netflix.discovery.converters.Auto;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+
+import javax.transaction.Transactional;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+public class UserServiceImpl implements UserService {
+
+    @Autowired
+    UserRepository userRepository;
+
+    @Autowired
+    CourseClient courseClient;
+
+    @Autowired
+    UserEventPublisher userEventPublisher;
+
+    @Override
+    public List<UserModel> findAll() {
+        return userRepository.findAll();
+    }
+
+    @Override
+    public Optional<UserModel> findById(UUID userId) {
+        return userRepository.findById(userId);
+    }
+
+    @Override
+    public void delete(UserModel userModel) {
+        userRepository.delete(userModel);
+    }
+
+    @Override
+    public UserModel save(UserModel userModel) {
+        return userRepository.save(userModel);
+    }
+
+
+    @Override
+    public boolean existsByUsername(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    @Override
+    public UserModel updateUser(UserModel userModel, UserDto userDto) {
+        userModel.setFullName(userDto.getFullName());
+        userModel.setPhoneNumber(userDto.getPhoneNumber());
+        userModel.setCpf(userDto.getCpf());
+        userModel.setLastUpdateDate(LocalDateTime.now(ZoneId.of("UTC")));
+
+        userRepository.save(userModel);
+
+        return userModel;
+    }
+
+    @Override
+    public void updatePassword(UserModel userModel, UserDto userDto) {
+        userModel.setPassword(userDto.getPassword());
+        userModel.setLastUpdateDate(LocalDateTime.now(ZoneId.of("UTC")));
+
+        userRepository.save(userModel);
+    }
+
+    @Override
+    public UserModel updateImage(UserModel userModel, UserDto userDto) {
+        userModel.setImageUrl(userDto.getImageUrl());
+        userModel.setLastUpdateDate(LocalDateTime.now(ZoneId.of("UTC")));
+
+        userRepository.save(userModel);
+
+        return userModel;
+    }
+
+    @Override
+    public Page<UserModel> findAll(Specification<UserModel> spec, Pageable pageable) {
+        return userRepository.findAll(spec, pageable);
+    }
+
+    @Transactional
+    @Override
+    public UserModel saveUser(UserModel userModel) {
+        userModel = save(userModel);
+        userEventPublisher.publishUserEvent(userModel.convertToUserEventDto(), ActionType.CREATE);
+        return userModel;
+    }
+}
